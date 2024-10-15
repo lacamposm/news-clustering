@@ -1,5 +1,7 @@
 from utils.scraper import get_df_news_to_summarize
 from utils.llms import write_summary_from_dataframe_in_json, get_embed_dataframe
+from model.clustering_pca import test_pca_kmeans
+from model.clustering_umap import test_umap_kmeans
 
 get_df_news_to_summarize("data/bronze/octubre_news_el_tiempo.parquet", num_cores=14)
 write_summary_from_dataframe_in_json("data/bronze/octubre_news_el_tiempo.parquet", "qwen2.5:7b")
@@ -15,3 +17,6 @@ for model_embed in list_names_model_embed:
     df_emdeb = get_embed_dataframe(model_embed, write_embed_df=True)
     print("Name embedding:", model_embed)
     print(df_emdeb)
+
+test_pca_kmeans("mxbai-embed-large:335m")
+test_umap_kmeans("mxbai-embed-large:335m")

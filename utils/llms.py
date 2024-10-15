@@ -88,8 +88,8 @@ def get_summary_news(news: str, model_name: str = "llama3.2:3b") -> str:
     prompt_summarization = ChatPromptTemplate(
         [
             SystemMessagePromptTemplate.from_template(
-                """Quiero que resumas esta noticia de manera clara, concisa y precisa. Debes captar los puntos """
-                """principales y asegurarte de cubrir los siguientes aspectos: """
+                """Por favor, crea un resumen natural, claro y preciso de esta noticia. Asegúrate de incluir los 
+                siguientes puntos de manera fluida::"""
                 """1. Evento principal o tema central: Describe en una o dos frases el evento clave o el tema más """
                 """importante de la noticia."""
                 """2. Actores principales y sus reacciones: Menciona las partes involucradas y sus posturas o 
@@ -98,9 +98,8 @@ def get_summary_news(news: str, model_name: str = "llama3.2:3b") -> str:
                 """consecuencia a corto o largo plazo derivada de la noticia."""
                 """4. Contexto adicional relevante: Incluye cualquier información de contexto que sea relevante para """
                 """comprender mejor el evento o las decisiones tomadas."""
-                """El resumen debe mantener un tono neutral, evitando cualquier juicio o interpretación, y no debe """
-                """exceder las 5 frases. El objetivo es capturar la esencia de la noticia sin perder precisión o """
-                """detalles importantes."""
+                """El resumen debe ser natural y no exceder las cinco frases. Evita juicios o interpretaciones, 
+                    enfocándote en capturar la esencia de la noticia sin perder detalles importantes."""
             ),
             HumanMessagePromptTemplate.from_template("El texto de la noticias es:\n{news}")
         ]

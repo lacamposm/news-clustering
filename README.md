@@ -2,7 +2,7 @@
 
 ## Descripción
 
-Este proyecto realiza un análisis de clustering de noticias del periódico El Tiempo de Colombia. El proceso incluye la obtención de URLs de noticias, extracción del texto completo, generación de resúmenes, creación de embeddings de los resúmenes y finalmente la aplicación de técnicas de modelado y clustering.
+Este proyecto realiza un análisis de clustering de noticias del periódico El Tiempo de Colombia. El proceso incluye la obtención de URLs de noticias, extracción del texto completo, generación de resúmenes (con uso de LLM), creación de embeddings de los resúmenes y finalmente la aplicación de técnicas de modelado y clustering.
 
 ## Requisitos
 
@@ -35,12 +35,16 @@ Descargue, instale y ejecute Ollama siguiendo las instrucciones en [https://olla
 
 ## Estructura del Proyecto
 
-El proyecto consta de cuatro scripts principales:
+El proyecto consta de tres scripts principales:
 
 - `utils/scraper.py`: Contiene funciones para obtener URLs de noticias y extraer su contenido.
 - `utils/llms.py`: Incluye funciones para generar resúmenes y embeddings de las noticias.
 - `clustering.py`: (En desarrollo) Realiza el análisis de clustering utilizando técnicas como t-SNE, K-means y HDBSCAN.
 - `main_news.py`: Script principal que orquesta el proceso completo de obtención de datos, generación de resúmenes y embeddings.
+
+Y un paquete:
+
+- `model`: (En desarrollo) Contiene primeras version de modelado con clustering. 
 
 ## Uso
 
@@ -55,14 +59,8 @@ Este script realizará los siguientes pasos:
 - Obtendrá las noticias de El Tiempo.
 - Generará resúmenes de las noticias.
 - Creará embeddings de los resúmenes utilizando varios modelos.
-
-### Para realizar el análisis de clustering:
-
-```bash
-python model/clustering.py
-```
-
-Este script aplicará técnicas de visualización (t-SNE) y clustering (K-means y HDBSCAN) a los embeddings generados.
+- Realizara reduccion de dimensionalidad con PCA y UMAP. Ademas de clustres con k-means y visualizacion con 
+  t-SNE y UMAP de los primeros resultados.
 
 ## Notas Adicionales
 
