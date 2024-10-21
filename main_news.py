@@ -1,22 +1,34 @@
-from utils.scraper import get_df_news_to_summarize
-from utils.llms import write_summary_from_dataframe_in_json, get_embed_dataframe
-from model.clustering_pca import test_pca_kmeans
-from model.clustering_umap import test_umap_kmeans
+import pandas as pd
+from joblib import dump, load
+from utils.scraper import get_scraper_df_news_el_tiempo
+from utils.llms import write_news_summary_from_scraper_df_in_json, get_embed_summary_df
+from utils.plots import tsne_plot_2d, umap_plot_2d
+from model.selection import random_search_best_model
 
-get_df_news_to_summarize("data/bronze/octubre_news_el_tiempo.parquet", num_cores=14)
-write_summary_from_dataframe_in_json("data/bronze/octubre_news_el_tiempo.parquet", "qwen2.5:7b")
 
-list_names_model_embed = [
-    "nomic-embed-text",
-    "mxbai-embed-large:335m",
-    "snowflake-arctic-embed:latest",
-    "bge-m3",
-]
+ollama_llm = "qwen2.5:7b"                       # Puede seleccionar el modelo LLM Ollama que desees tipo instruct
+get_scraper_df_news_el_tiempo("data/bronze/octubre_news_el_tiempo.parquet", n_jobs=-1)
+write_news_summary_from_scraper_df_in_json("data/bronze/octubre_news_el_tiempo.parquet", ollama_llm)
 
-for model_embed in list_names_model_embed:
-    df_emdeb = get_embed_dataframe(model_embed, write_embed_df=True)
-    print("Name embedding:", model_embed)
-    print(df_emdeb)
+embed_model_name = "mxbai-embed-large:335m"     # Puedes usar otros modelos de embeddings si deseas.
+n_iter = 500                                    # Número de ajustes en RandomizedSearchCV.
+scorer = "davies-bouldin"                       # Puedes seleccionar diferentes metrica de adecuación de clusters
+random_state = 42                               # Semilla aletoria de RandomizedSearchCV para replicar resultados.
 
-test_pca_kmeans("mxbai-embed-large:335m")
-test_umap_kmeans("mxbai-embed-large:335m")
+df_emdeb = get_embed_summary_df(embed_model_name, write_embed_df=True)
+tsne_plot_2d(df_emdeb)
+umap_plot_2d(df_emdeb)
+
+best_model = random_search_best_model(embed_model_name, scorer, n_iter, random_state)
+labels = best_model.predict(df_emdeb)
+tsne_plot_2d(df_emdeb, labels, best_model)
+umap_plot_2d(df_emdeb, labels, best_model)
+
+dump(best_model.best_estimator_, "model/news_clustering_model.joblib")
+model_clustering = load("model/news_clustering_model.joblib")
+
+df_to_predict = df_emdeb.sample(5)
+print(df_to_predict)
+labels = model_clustering.predict(df_to_predict)
+print("Predict results:")
+print(pd.DataFrame({"cluster": labels}, index=df_to_predict.index))

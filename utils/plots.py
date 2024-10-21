@@ -1,11 +1,13 @@
-import umap
 import warnings
 import numpy as np
 import pandas as pd
 import plotly.express as px
-from sklearn.preprocessing import StandardScaler, normalize
+from umap import UMAP
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 from sklearn.manifold import TSNE
+from sklearn.pipeline import Pipeline
 from sklearn.metrics import silhouette_score, calinski_harabasz_score, davies_bouldin_score
 
 warnings.filterwarnings("ignore")
@@ -81,6 +83,7 @@ def silhouette_plot(df: pd.DataFrame, n: int = 2, scaled_data: bool = True):
         raise ValueError(f"No se pudo calcular KMeans: {e}")
 
     data_plot = pd.DataFrame({"n_clusters": range(2, n + 1), "Silhouette_score": silhouette_scores})
+
     (
         px.line(
             data_plot,
@@ -182,8 +185,10 @@ def calinski_harabasz_plot(df: pd.DataFrame, n: int = 2, scaled_data: bool = Tru
         df_scaled = df
 
     try:
-        calinski_scores = [calinski_harabasz_score(df_scaled, KMeans(n_clusters=k, random_state=42).fit_predict(df_scaled))
-                           for k in range(2, n + 1)]
+        calinski_scores = [
+            calinski_harabasz_score(df_scaled, KMeans(n_clusters=k, random_state=42).fit_predict(df_scaled))
+            for k in range(2, n + 1)
+        ]
     except Exception as e:
         raise ValueError(f"No se pudo calcular KMeans o Calinski-Harabasz: {e}")
 
@@ -205,13 +210,12 @@ def calinski_harabasz_plot(df: pd.DataFrame, n: int = 2, scaled_data: bool = Tru
 
 def davies_bouldin_plot(df: pd.DataFrame, n: int = 2, scaled_data: bool = True):
     """
-    Función que plotea el número de clusters vs el índice de Davies-Bouldin para determinar el número de clusters óptimo.
+    Función que plotea el número de clusters vs el índice de Davies-Bouldin para determinar el número de clusters óptimo
 
     :param df: pd.DataFrame con la data original.
     :param n: int, opcional. Número máximo de clusters a comparar. Default es 2.
     :param scaled_data: bool, opcional. Indica si los datos ya están escalados. Default es True.
     :raises ValueError: Si el DataFrame contiene valores NaN o si no se puede calcular KMeans.
-    :return: None
 
     **Nota: Si scaled_data es False, los datos se escalan utilizando StandardScaler.**
     """
@@ -246,23 +250,108 @@ def davies_bouldin_plot(df: pd.DataFrame, n: int = 2, scaled_data: bool = True):
     ).show()
 
 
-def tsne_plot_2d(df: pd.DataFrame, cluster_label):
+def transform_dict_best_model(input_dict):
     """
-    :param df:
-    :param cluster_label:
-    :return:
+    Transforma un diccionario de parámetros de un modelo en un nuevo formato más estructurado.
+
+    Esta función toma un diccionario que contiene información sobre un modelo, incluyendo un preprocesador, un método
+    de reducción de dimensiones y un agrupador (clusterer), junto con sus parámetros específicos. La función reorganiza
+    esta información en un formato más accesible y fácil de usar.
+
+    :param input_dict: Un diccionario que contiene los parámetros del modelo. Debe incluir las claves "preprocessor",
+    "dim_reduction", y "clusterer", así como pares clave-valor para los parámetros del agrupador y la reducción de
+    dimensiones que siguen el formato "clusterer__<param_name>" y "dim_reduction__<param_name>".
+    :return: Un nuevo diccionario estructurado que contiene el preprocesador, la reducción de dimensiones, el agrupador,
+    y los parámetros asociados a cada uno. La clave de los parámetros de agrupador y    de reducción de dimensiones
+    se simplifica eliminando el prefijo correspondiente.
     """
-    normalized_embeddings = normalize(df)
-    tsne = TSNE(n_components=2, random_state=42)
-    df_plot = pd.DataFrame(tsne.fit_transform(normalized_embeddings), columns=["tSNE1", "tSNE2"])
-    df_plot["cluster"] = cluster_label + 1
-    df_plot = df_plot.sort_values(by=["cluster"])
-    df_plot["cluster"] = df_plot["cluster"].astype("string")
+    return {
+        "preprocessor": input_dict["preprocessor"],
+        "dim_reduction": input_dict["dim_reduction"],
+        "clusterer": input_dict["clusterer"],
+        "clusterer_params": {
+            k.split("__")[-1]: v for k, v in input_dict.items()
+            if k.startswith("clusterer__")
+        },
+        "dim_reduction_params": {
+            k.split("__")[-1]: v for k, v in input_dict.items()
+            if k.startswith("dim_reduction__")
+        }
+    }
+
+
+def tsne_plot_2d(df: pd.DataFrame, cluster_label=None, best_model=None):
+    """
+    Genera un gráfico 2D utilizando t-SNE para visualizar embeddings en un espacio reducido.
+
+    Esta función aplica un preprocesador a un DataFrame, seguido de una reducción de dimensionalidad mediante t-SNE.
+    Se pueden visualizar los embeddings resultantes en un gráfico, con la opción de agregar etiquetas de clúster para
+    distinguir diferentes grupos en los datos.
+
+    :param df: DataFrame que contiene los datos a visualizar. Cada fila representa una observación y cada columna
+    representa una característica o variable.
+    :param cluster_label: Etiquetas de clúster opcionales para los datos, que se utilizarán para colorear los puntos en
+    el gráfico. Si se proporciona, los puntos se agruparán y se ordenarán por clúster.
+    :param best_model:
+    """
+    if best_model is not None:
+        params_best_model = transform_dict_best_model(best_model.best_params_)
+        preprocessor = params_best_model["preprocessor"]
+        dim_reduction = params_best_model["dim_reduction"]
+        clusterer = params_best_model["clusterer"]
+        best_score = abs(best_model.best_score_)
+
+        params_estimator = params_best_model["clusterer_params"]
+        params_reduction = params_best_model["dim_reduction_params"]
+        metric = params_reduction.get("metric", "cosine")
+        params_reduction_str = ", ".join([f"{k}: {params_reduction[k]}" for k in params_reduction])
+        params_estimator_str = ", ".join([f"{k}: {params_estimator[k]}" for k in params_estimator])
+
+        if params_reduction is not None and isinstance(dim_reduction, PCA):
+            dim_reduction.set_params(**params_reduction)
+            pipeline = Pipeline([
+                ("preprocessor", preprocessor),
+                ("dim_reduction", dim_reduction),
+            ])
+
+            normalized_embeddings = pipeline.fit_transform(df)
+
+        else:
+            normalized_embeddings = preprocessor.fit_transform(df)
+
+        tsne = TSNE(n_components=2, random_state=42, metric=metric)
+        df_plot = pd.DataFrame(tsne.fit_transform(normalized_embeddings), columns=["tSNE1", "tSNE2"])
+        title = (
+            f"""<b>Clustering: News-Summary-Embeddings in Low dimension with t-SNE</b><br>"""
+            f"""<span style='font-size: 11px;'>Scaler: {preprocessor.__class__.__name__}, """
+            f"""Dim-Reduction: {dim_reduction.__class__.__name__}, Estimator: {clusterer.__class__.__name__}, Metric:"""
+            f""" {metric}, Scorer Metric: {best_model.scorer_.__name__}={best_score:.3f}</span><br>"""
+            f"""<span style='font-size: 8px;'>RandomizedSearchCV - Params: Dim-Reduction:  {params_reduction_str}. """
+            f"""Estimator: {params_estimator_str}</span>"""
+        )
+
+    else:
+        df_scaled = StandardScaler().fit_transform(df)
+        metric = "cosine"
+        tsne = TSNE(n_components=2, random_state=42, metric=metric)
+        df_plot = pd.DataFrame(tsne.fit_transform(df_scaled), columns=["tSNE1", "tSNE2"])
+        title = (
+            f"""<b>News-Summary-Embeddings in Low dimension with t-SNE</b><br>"""
+            f"""<span style='font-size: 10px;'>Scaler: {StandardScaler().__class__.__name__}"""
+        )
+
+    if cluster_label is not None:
+        df_plot["cluster"] = cluster_label + 1
+        df_plot = df_plot.sort_values(by=["cluster"])
+        df_plot["cluster"] = df_plot["cluster"].astype("string")
+        color = "cluster"
+    else:
+        color = None
 
     (
         px.scatter(
-            df_plot, x="tSNE1", y="tSNE2", color="cluster",
-            title=f"Low dimension with TSNE",
+            df_plot, x="tSNE1", y="tSNE2", color=color,
+            title=title,
             opacity=0.8,
             color_discrete_sequence=px.colors.qualitative.Dark24,
             template="plotly_white"
@@ -272,25 +361,72 @@ def tsne_plot_2d(df: pd.DataFrame, cluster_label):
     )
 
 
-def umap_plot_2d(df: pd.DataFrame, cluster_label):
+def umap_plot_2d(df: pd.DataFrame, cluster_label=None, best_model=None):
     """
     Función que genera un gráfico en 2D utilizando UMAP y muestra los clústeres.
 
-    :param df: pd.DataFrame con los datos originales (embeddings).
+    :param df: pd.DataFrame con los embeddings de los resumenes de las noticias).
     :param cluster_label: Etiquetas de los clústeres para colorear los puntos.
-    :return: None
+    :param best_model:
     """
-    reducer = umap.UMAP(n_components=2, random_state=42)
-    df_plot = pd.DataFrame(reducer.fit_transform(df), columns=["UMAP1", "UMAP2"])
+    if best_model is not None:
+        params_best_model = transform_dict_best_model(best_model.best_params_)
+        preprocessor = params_best_model["preprocessor"]
+        dim_reduction = params_best_model["dim_reduction"]
+        clusterer = params_best_model["clusterer"]
+        best_score = abs(best_model.best_score_)
 
-    df_plot["cluster"] = cluster_label + 1
-    df_plot = df_plot.sort_values(by=["cluster"])
-    df_plot["cluster"] = df_plot["cluster"].astype("string")
+        params_estimator = params_best_model["clusterer_params"]
+        params_reduction = params_best_model["dim_reduction_params"]
+        metric = params_reduction.get("metric", "cosine")
+        params_reduction_str = ", ".join([f"{k}: {params_reduction[k]}" for k in params_reduction])
+        params_estimator_str = ", ".join([f"{k}: {params_estimator[k]}" for k in params_estimator])
+
+        if params_reduction is not None:
+            dim_reduction.set_params(**params_reduction)
+
+        if isinstance(dim_reduction, UMAP):
+            df_scaled = preprocessor.fit_transform(df)
+            dim_reduction.n_components = 2
+            df_plot = pd.DataFrame(dim_reduction.fit_transform(df_scaled), columns=["UMAP1", "UMAP2"])
+        else:
+            pipeline = Pipeline([
+                ("preprocessor", preprocessor),
+                ("dim_reduction", dim_reduction),
+            ])
+            df_scaled = pipeline.fit_transform(df)
+            reducer = UMAP(n_components=2, random_state=42, metric=metric)
+            df_plot = pd.DataFrame(reducer.fit_transform(df_scaled), columns=["UMAP1", "UMAP2"])
+        title = (
+            f"""<b>Clustering: News-Summary-Embeddings in Low dimension with UMAP</b><br>"""
+            f"""<span style='font-size: 11px;'>Scaler: {preprocessor.__class__.__name__}, """
+            f"""Dim-Reduction: {dim_reduction.__class__.__name__}, Estimator: {clusterer.__class__.__name__}, Metric:"""
+            f""" {metric}, Scorer Metric: {best_model.scorer_.__name__}={best_score:.3f}</span><br>"""
+            f"""<span style='font-size: 8px;'>RandomizedSearchCV - Params: Dim-Reduction:  {params_reduction_str}. """
+            f"""Estimator: {params_estimator_str}</span>"""
+        )
+
+    else:
+        df_scaled = StandardScaler().fit_transform(df)
+        reducer = UMAP(n_components=2, random_state=42)
+        df_plot = pd.DataFrame(reducer.fit_transform(df_scaled), columns=["UMAP1", "UMAP2"])
+        title = (
+            f"""<b>News-Summary-Embeddings in Low dimension with UMAP</b><br>"""
+            f"""<span style='font-size: 10px;'>Scaler: {StandardScaler().__class__.__name__}"""
+        )
+
+    if cluster_label is not None:
+        df_plot["cluster"] = cluster_label + 1
+        df_plot = df_plot.sort_values(by=["cluster"])
+        df_plot["cluster"] = df_plot["cluster"].astype("string")
+        color = "cluster"
+    else:
+        color = None
 
     (
         px.scatter(
-            df_plot, x="UMAP1", y="UMAP2", color="cluster",
-            title=f"Low dimension with UMAP",
+            df_plot, x="UMAP1", y="UMAP2", color=color,
+            title=title,
             opacity=0.8,
             color_discrete_sequence=px.colors.qualitative.Dark24,
             template="plotly_white"

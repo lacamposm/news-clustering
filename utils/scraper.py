@@ -93,7 +93,7 @@ def get_content_news_from_url(url: str) -> Dict:
         ValueError(f"Problems with status_code: {request.status_code}")
 
 
-def get_df_news_by_parallel_process_urls(urls: List[str], num_cores=4) -> pd.DataFrame:
+def get_df_news_by_parallel_process_urls(urls: List[str], n_jobs=4) -> pd.DataFrame:
     """
     Procesa múltiples URLs en paralelo para extraer contenido de noticias.
 
@@ -103,8 +103,8 @@ def get_df_news_by_parallel_process_urls(urls: List[str], num_cores=4) -> pd.Dat
 
     :param urls: Lista de URLs a procesar.
     :type urls: List[str]
-    :param num_cores: Número de núcleos a utilizar para el procesamiento paralelo. Por defecto es 4.
-    :type num_cores: int
+    :param n_jobs: Número de núcleos a utilizar para el procesamiento paralelo. Por defecto es 4.
+    :type n_jobs: int
     :return: DataFrame con la información extraída de cada URL.
     :rtype: pd.DataFrame
 
@@ -114,11 +114,13 @@ def get_df_news_by_parallel_process_urls(urls: List[str], num_cores=4) -> pd.Dat
         >>> print(df.shape)
         (2, 3)
     """
-    num_cores_ = os.cpu_count()
-    print(f"Número de cores disponibles: {num_cores_}")
+    cpus = os.cpu_count()
+    print(f"Número de cores disponibles: {cpus}")
+    if n_jobs == -1:
+        n_jobs = cpus
     results = []
 
-    with ThreadPoolExecutor(max_workers=num_cores) as executor:
+    with ThreadPoolExecutor(max_workers=n_jobs) as executor:
         futures = [executor.submit(get_content_news_from_url, url) for url in urls]
 
         for future in as_completed(futures):
@@ -130,7 +132,7 @@ def get_df_news_by_parallel_process_urls(urls: List[str], num_cores=4) -> pd.Dat
     return pd.DataFrame(results)
 
 
-def get_df_news_to_summarize(path_file: str = "data/bronze/news_data.parquet", num_cores: int = 4) -> pd.DataFrame:
+def get_scraper_df_news_el_tiempo(path_file: str = "data/bronze/news_data.parquet", n_jobs: int = 4) -> pd.DataFrame:
     """
     Obtiene un DataFrame de noticias listo para ser resumido.
 
@@ -140,19 +142,19 @@ def get_df_news_to_summarize(path_file: str = "data/bronze/news_data.parquet", n
 
     :param path_file: Ruta del archivo Parquet donde se guardarán o de donde se cargarán los datos.
     :type path_file: str
-    :param num_cores: Número de núcleos a utilizar para el procesamiento paralelo. Por defecto es 4.
-    :type num_cores: int
+    :param n_jobs: Número de núcleos a utilizar para el procesamiento paralelo. Por defecto es 4.
+    :type n_jobs: int
     :return: DataFrame con información completa de las noticias, incluyendo URL, contenido, autor, etc.
     :rtype: pd.DataFrame
 
     Example:
-        >>> df = get_df_news_to_summarize("data/bronze/news_data.parquet")
+        >>> df = get_scraper_df_news_el_tiempo("data/bronze/news_data.parquet")
         >>> print(df.columns)
         Index(['url_page', 'title', 'publication_date', 'keywords', 'autor', 'news_content'], dtype='object')
     """
     if not Path(path_file).exists():
         df_sitemap = get_df_from_sitemap_el_tiempo()
-        df_news_content = get_df_news_by_parallel_process_urls(df_sitemap["url_page"].to_list(), num_cores)
+        df_news_content = get_df_news_by_parallel_process_urls(df_sitemap["url_page"].to_list(), n_jobs)
         df_sitemap.merge(df_news_content, on=["url_page"]).to_parquet(path_file)
         return df_sitemap.merge(df_news_content, on=["url_page"])
 

@@ -110,7 +110,7 @@ def get_summary_news(news: str, model_name: str = "llama3.2:3b") -> str:
     return llm_chain.invoke({"news": news})
 
 
-def write_summary_from_dataframe_in_json(file_path: str = "data/bronze/news.parquet", model_name: str = "llama3.2:3b"):
+def write_news_summary_from_scraper_df_in_json(file_path: str = "data/bronze/news.parquet", model_name: str = "llama3.2:3b"):
     """
     Lee noticias de un archivo Parquet, genera resúmenes y los guarda en un archivo JSON.
 
@@ -126,7 +126,7 @@ def write_summary_from_dataframe_in_json(file_path: str = "data/bronze/news.parq
     :return: None
 
     Example:
-        >>> write_summary_from_dataframe_in_json()
+        >>> write_news_summary_from_scraper_df_in_json()
         # Procesa las noticias y guarda los resúmenes en 'data/octubre_news_summary.json'
     """
 
@@ -150,7 +150,7 @@ def write_summary_from_dataframe_in_json(file_path: str = "data/bronze/news.parq
             json.dump(results, f, indent=4)
 
 
-def get_embed_dataframe(embed_model_name: str = "nomic-embed-text", write_embed_df: bool = False):
+def get_embed_summary_df(embed_model_name: str = "nomic-embed-text", write_embed_df: bool = False):
     """
     Carga resúmenes de noticias, genera embeddings y opcionalmente los guarda en un archivo Parquet.
 
@@ -166,7 +166,7 @@ def get_embed_dataframe(embed_model_name: str = "nomic-embed-text", write_embed_
     :rtype: pandas.DataFrame
 
     Example:
-        >>> df_embeddings = get_embed_dataframe(write_embed_df=True)
+        >>> df_embeddings = get_embed_summary_df(write_embed_df=True)
         # Genera embeddings y los guarda en 'data/embeddings/nomic-embed-text_summary_news_el_tiempo.parquet'
     """
     if not Path(f"data/silver/{embed_model_name}_summary_news_el_tiempo.parquet").exists():
