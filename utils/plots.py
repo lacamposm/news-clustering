@@ -300,6 +300,7 @@ def tsne_plot_2d(df: pd.DataFrame, cluster_label=None, best_model=None):
         dim_reduction = params_best_model["dim_reduction"]
         clusterer = params_best_model["clusterer"]
         best_score = abs(best_model.best_score_)
+        name_metric_score = best_model.scorer_[best_model.get_params()["refit"]].__name__
 
         params_estimator = params_best_model["clusterer_params"]
         params_reduction = params_best_model["dim_reduction_params"]
@@ -325,7 +326,7 @@ def tsne_plot_2d(df: pd.DataFrame, cluster_label=None, best_model=None):
             f"""<b>Clustering: News-Summary-Embeddings in Low dimension with t-SNE</b><br>"""
             f"""<span style='font-size: 11px;'>Scaler: {preprocessor.__class__.__name__}, """
             f"""Dim-Reduction: {dim_reduction.__class__.__name__}, Estimator: {clusterer.__class__.__name__}, Metric:"""
-            f""" {metric}, Scorer Metric: {best_model.scorer_.__name__}={best_score:.3f}</span><br>"""
+            f""" {metric}, Scorer Metric: {name_metric_score}={best_score:.3f}</span><br>"""
             f"""<span style='font-size: 8px;'>RandomizedSearchCV - Params: Dim-Reduction:  {params_reduction_str}. """
             f"""Estimator: {params_estimator_str}</span>"""
         )
@@ -375,6 +376,7 @@ def umap_plot_2d(df: pd.DataFrame, cluster_label=None, best_model=None):
         dim_reduction = params_best_model["dim_reduction"]
         clusterer = params_best_model["clusterer"]
         best_score = abs(best_model.best_score_)
+        name_metric_score = best_model.scorer_[best_model.get_params()["refit"]].__name__
 
         params_estimator = params_best_model["clusterer_params"]
         params_reduction = params_best_model["dim_reduction_params"]
@@ -401,7 +403,7 @@ def umap_plot_2d(df: pd.DataFrame, cluster_label=None, best_model=None):
             f"""<b>Clustering: News-Summary-Embeddings in Low dimension with UMAP</b><br>"""
             f"""<span style='font-size: 11px;'>Scaler: {preprocessor.__class__.__name__}, """
             f"""Dim-Reduction: {dim_reduction.__class__.__name__}, Estimator: {clusterer.__class__.__name__}, Metric:"""
-            f""" {metric}, Scorer Metric: {best_model.scorer_.__name__}={best_score:.3f}</span><br>"""
+            f""" {metric}, Scorer Metric: {name_metric_score}={best_score:.3f}</span><br>"""
             f"""<span style='font-size: 8px;'>RandomizedSearchCV - Params: Dim-Reduction:  {params_reduction_str}. """
             f"""Estimator: {params_estimator_str}</span>"""
         )

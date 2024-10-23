@@ -15,6 +15,9 @@ def silhouette_scorer(estimator, X):
     :return: El Silhouette Score para el conjunto de datos `X` y las etiquetas de los clústeres obtenidos del
     `estimator`. Se utiliza la métrica de coseno para calcular las distancias.
     """
+    if not hasattr(estimator, "predict"):
+        raise ValueError(f"El estimator: {estimator} no tiene metodo 'predict'")
+
     labels = estimator.predict(X)
     return silhouette_score(X, labels, metric="cosine")
 
@@ -31,8 +34,12 @@ def davies_bouldin_scorer(estimator, X):
     clústeres de las muestras de `X`.
     :param X: Un array-like o matriz de datos (n_samples, n_features) sobre los cuales se calcularán los clústeres.
     :return: El valor negativo del índice de Davies-Bouldin para el conjunto de datos `X` y las etiquetas de los
-    clústeres obtenidos del `estimator`. Se devuelve en negativo porque en este índice, un valor más bajo es mejor,
-    y en algunas implementaciones de búsqueda de hiperparámetros, se maximiza la métrica.
+    clústeres obtenidos del `estimator`. Esto invierte la métrica para que pueda maximizarse en las búsquedas
+    de hiperparámetros.
     """
+    if not hasattr(estimator, "predict"):
+        raise ValueError(f"El estimator: {estimator} no tiene metodo 'predict'")
+
     labels = estimator.predict(X)
-    return -davies_bouldin_score(X, labels)
+    score = -davies_bouldin_score(X, labels)
+    return score

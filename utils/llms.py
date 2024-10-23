@@ -158,7 +158,7 @@ def get_embed_summary_df(embed_model_name: str = "nomic-embed-text", write_embed
     para estos resúmenes utilizando el modelo especificado, y opcionalmente guarda estos
     embeddings en un archivo Parquet para su uso posterior.
 
-    :param embed_model_name: Nombre del modelo de embeddings a utilizar.
+    :param embed_model_name: Nombre del modelo de embeddings a utilizar. Debe ser el nombre en Ollama
     :type embed_model_name: str
     :param write_embed_df: Indica si se deben guardar los embeddings en un archivo Parquet.
     :type write_embed_df: bool
@@ -169,19 +169,24 @@ def get_embed_summary_df(embed_model_name: str = "nomic-embed-text", write_embed
         >>> df_embeddings = get_embed_summary_df(write_embed_df=True)
         # Genera embeddings y los guarda en 'data/embeddings/nomic-embed-text_summary_news_el_tiempo.parquet'
     """
-    if not Path(f"data/silver/{embed_model_name}_summary_news_el_tiempo.parquet").exists():
+    if not isinstance(embed_model_name, str):
+        raise ValueError(f"El nombre del modelo de embeddings debe ser un string")
+
+    name_to_write_or_read = embed_model_name.split(":")[0]
+
+    if not Path(f"data/silver/{name_to_write_or_read}_summary_news_el_tiempo.parquet").exists():
         with open(f"data/silver/octubre_news_summary.json", "r") as f:
             summaries = json.load(f)
 
         df_news_summary = pd.DataFrame(list(summaries.items()), columns=["url_page", "summary"])
-        embed_news_nomic = get_embed_text(list(df_news_summary["summary"]), embed_model_name)
+        embed_summary_news = get_embed_text(list(df_news_summary["summary"]), embed_model_name)
 
         if write_embed_df:
             (
-                pd.DataFrame(embed_news_nomic, index=df_news_summary["url_page"])
-                .to_parquet(f"data/silver/{embed_model_name}_summary_news_el_tiempo.parquet")
+                pd.DataFrame(embed_summary_news, index=df_news_summary["url_page"])
+                .to_parquet(f"data/silver/{name_to_write_or_read}_summary_news_el_tiempo.parquet")
             )
 
-        return pd.DataFrame(embed_news_nomic, index=df_news_summary["url_page"])
+        return pd.DataFrame(embed_summary_news, index=df_news_summary["url_page"])
 
-    return pd.read_parquet(f"data/silver/{embed_model_name}_summary_news_el_tiempo.parquet")
+    return pd.read_parquet(f"data/silver/{name_to_write_or_read}_summary_news_el_tiempo.parquet")

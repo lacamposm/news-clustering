@@ -32,12 +32,25 @@ def build_param_grid_search(scorer="silhouette", n_iter=10, random_state=42):
     :param random_state: Semilla utilizada por el generador de números aleatorios para la reproducibilidad.
     :return: Un RandomizedSearchCV configurado con la cuadrícula de parámetros especificada y la métrica de puntuación.
     """
-    if scorer == "silhouette":
-        scorer = silhouette_scorer
-    elif scorer == "davies-bouldin":
-        scorer = davies_bouldin_scorer
+    scoring_dict = {
+        "silhouette": silhouette_scorer,
+        "davies-bouldin": davies_bouldin_scorer,
+    }
+
+    if isinstance(scorer, list):
+        scoring_dict = {score: scoring_dict[score] for score in scorer if score in scoring_dict}
+        if not scoring_dict:
+            raise ValueError(f"Scorer: {scorer}, no esta implementado.")
+        refit_score = "silhouette"
+
+    elif isinstance(scorer, str):
+        if scorer not in scoring_dict:
+            raise ValueError(f"Scorer: {scorer}, no está implementado.")
+        scoring_dict = {scorer: scoring_dict[scorer]}
+        refit_score = scorer
+
     else:
-        scorer = silhouette_scorer
+        raise ValueError("El scorer debe ser una cadena o una lista de cadenas.")
 
     list_scalers = [StandardScaler(), MinMaxScaler(), RobustScaler()]
 
@@ -99,18 +112,20 @@ def build_param_grid_search(scorer="silhouette", n_iter=10, random_state=42):
     random_search = RandomizedSearchCV(
         pipeline,
         param_distributions=param_grid,
-        scoring=scorer,
+        scoring=scoring_dict,
         cv=2,
         n_jobs=-1,
         verbose=3,
         n_iter=n_iter,
+        refit=refit_score,
         random_state=random_state
     )
 
     return random_search
 
 
-def random_search_best_model(embed_model_name="mxbai-embed-large:335m", scorer="silhouette", n_iter=10, random_state=42):
+def random_search_best_model(embed_model_name="mxbai-embed-large:335m", scorer="silhouette", n_iter=10,
+                             random_state=42):
     """
     Entrena y evalúa el mejor modelo de agrupamiento utilizando el modelo de embeddings especificado.
 
