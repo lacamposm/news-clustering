@@ -280,7 +280,7 @@ def transform_dict_best_model(input_dict):
     }
 
 
-def tsne_plot_2d(df: pd.DataFrame, cluster_label=None, best_model=None):
+def tsne_plot_2d(df, estimator=None, scorer=silhouette_score, metric="cosine"):
     """
     Genera un gráfico 2D utilizando t-SNE para visualizar embeddings en un espacio reducido.
 
@@ -290,26 +290,18 @@ def tsne_plot_2d(df: pd.DataFrame, cluster_label=None, best_model=None):
 
     :param df: DataFrame que contiene los datos a visualizar. Cada fila representa una observación y cada columna
     representa una característica o variable.
-    :param cluster_label: Etiquetas de clúster opcionales para los datos, que se utilizarán para colorear los puntos en
-    el gráfico. Si se proporciona, los puntos se agruparán y se ordenarán por clúster.
-    :param best_model:
+    :param metric:
+    :param scorer:
+    :param estimator:
     """
-    if best_model is not None:
-        params_best_model = transform_dict_best_model(best_model.best_params_)
-        preprocessor = params_best_model["preprocessor"]
-        dim_reduction = params_best_model["dim_reduction"]
-        clusterer = params_best_model["clusterer"]
-        best_score = abs(best_model.best_score_)
-        name_metric_score = best_model.scorer_[best_model.get_params()["refit"]].__name__
+    if estimator is not None:
+        params_estimator = transform_dict_best_model(estimator.get_params())
+        preprocessor = params_estimator.get("preprocessor")
+        dim_reduction = params_estimator.get("dim_reduction")
+        clusterer = params_estimator.get("clusterer")
+        best_score = scorer(estimator, df)
 
-        params_estimator = params_best_model["clusterer_params"]
-        params_reduction = params_best_model["dim_reduction_params"]
-        metric = params_reduction.get("metric", "cosine")
-        params_reduction_str = ", ".join([f"{k}: {params_reduction[k]}" for k in params_reduction])
-        params_estimator_str = ", ".join([f"{k}: {params_estimator[k]}" for k in params_estimator])
-
-        if params_reduction is not None and isinstance(dim_reduction, PCA):
-            dim_reduction.set_params(**params_reduction)
+        if isinstance(dim_reduction, PCA):
             pipeline = Pipeline([
                 ("preprocessor", preprocessor),
                 ("dim_reduction", dim_reduction),
@@ -322,31 +314,25 @@ def tsne_plot_2d(df: pd.DataFrame, cluster_label=None, best_model=None):
 
         tsne = TSNE(n_components=2, random_state=42, metric=metric)
         df_plot = pd.DataFrame(tsne.fit_transform(normalized_embeddings), columns=["tSNE1", "tSNE2"])
+        df_plot["cluster"] = estimator.predict(df) + 1
+        df_plot = df_plot.sort_values(by=["cluster"])
+        df_plot["cluster"] = df_plot["cluster"].astype("string")
         title = (
             f"""<b>Clustering: News-Summary-Embeddings in Low dimension with t-SNE</b><br>"""
             f"""<span style='font-size: 11px;'>Scaler: {preprocessor.__class__.__name__}, """
-            f"""Dim-Reduction: {dim_reduction.__class__.__name__}, Estimator: {clusterer.__class__.__name__}, Metric:"""
-            f""" {metric}, Scorer Metric: {name_metric_score}={best_score:.3f}</span><br>"""
-            f"""<span style='font-size: 8px;'>RandomizedSearchCV - Params: Dim-Reduction:  {params_reduction_str}. """
-            f"""Estimator: {params_estimator_str}</span>"""
+            f"""Dim-Reduction: {dim_reduction.__class__.__name__}, Estimator: {clusterer.__class__.__name__}, Metric """
+            f"""Plot: {metric}, Scorer Metric: {scorer.__name__}={best_score:.3f}</span>"""
         )
+        color = "cluster"
 
     else:
         df_scaled = StandardScaler().fit_transform(df)
-        metric = "cosine"
         tsne = TSNE(n_components=2, random_state=42, metric=metric)
         df_plot = pd.DataFrame(tsne.fit_transform(df_scaled), columns=["tSNE1", "tSNE2"])
         title = (
             f"""<b>News-Summary-Embeddings in Low dimension with t-SNE</b><br>"""
             f"""<span style='font-size: 10px;'>Scaler: {StandardScaler().__class__.__name__}"""
         )
-
-    if cluster_label is not None:
-        df_plot["cluster"] = cluster_label + 1
-        df_plot = df_plot.sort_values(by=["cluster"])
-        df_plot["cluster"] = df_plot["cluster"].astype("string")
-        color = "cluster"
-    else:
         color = None
 
     (
@@ -362,30 +348,20 @@ def tsne_plot_2d(df: pd.DataFrame, cluster_label=None, best_model=None):
     )
 
 
-def umap_plot_2d(df: pd.DataFrame, cluster_label=None, best_model=None):
+def umap_plot_2d(df, estimator=None, scorer=silhouette_score, metric="cosine"):
     """
     Función que genera un gráfico en 2D utilizando UMAP y muestra los clústeres.
-
     :param df: pd.DataFrame con los embeddings de los resumenes de las noticias).
-    :param cluster_label: Etiquetas de los clústeres para colorear los puntos.
-    :param best_model:
+    :param estimator:
+    :param scorer:
+    :param metric:
     """
-    if best_model is not None:
-        params_best_model = transform_dict_best_model(best_model.best_params_)
-        preprocessor = params_best_model["preprocessor"]
-        dim_reduction = params_best_model["dim_reduction"]
-        clusterer = params_best_model["clusterer"]
-        best_score = abs(best_model.best_score_)
-        name_metric_score = best_model.scorer_[best_model.get_params()["refit"]].__name__
-
-        params_estimator = params_best_model["clusterer_params"]
-        params_reduction = params_best_model["dim_reduction_params"]
-        metric = params_reduction.get("metric", "cosine")
-        params_reduction_str = ", ".join([f"{k}: {params_reduction[k]}" for k in params_reduction])
-        params_estimator_str = ", ".join([f"{k}: {params_estimator[k]}" for k in params_estimator])
-
-        if params_reduction is not None:
-            dim_reduction.set_params(**params_reduction)
+    if estimator is not None:
+        params_estimator = transform_dict_best_model(estimator.get_params())
+        preprocessor = params_estimator.get("preprocessor")
+        dim_reduction = params_estimator.get("dim_reduction")
+        clusterer = params_estimator.get("clusterer")
+        best_score = scorer(estimator, df)
 
         if isinstance(dim_reduction, UMAP):
             df_scaled = preprocessor.fit_transform(df)
@@ -399,13 +375,17 @@ def umap_plot_2d(df: pd.DataFrame, cluster_label=None, best_model=None):
             df_scaled = pipeline.fit_transform(df)
             reducer = UMAP(n_components=2, random_state=42, metric=metric)
             df_plot = pd.DataFrame(reducer.fit_transform(df_scaled), columns=["UMAP1", "UMAP2"])
+
+        df_plot["cluster"] = estimator.predict(df) + 1
+        df_plot = df_plot.sort_values(by=["cluster"])
+        df_plot["cluster"] = df_plot["cluster"].astype("string")
+        color = "cluster"
         title = (
             f"""<b>Clustering: News-Summary-Embeddings in Low dimension with UMAP</b><br>"""
             f"""<span style='font-size: 11px;'>Scaler: {preprocessor.__class__.__name__}, """
             f"""Dim-Reduction: {dim_reduction.__class__.__name__}, Estimator: {clusterer.__class__.__name__}, Metric:"""
-            f""" {metric}, Scorer Metric: {name_metric_score}={best_score:.3f}</span><br>"""
-            f"""<span style='font-size: 8px;'>RandomizedSearchCV - Params: Dim-Reduction:  {params_reduction_str}. """
-            f"""Estimator: {params_estimator_str}</span>"""
+            f""" {metric}, Scorer Metric: {scorer.__name__}={best_score:.3f}</span>"""
+
         )
 
     else:
@@ -416,13 +396,6 @@ def umap_plot_2d(df: pd.DataFrame, cluster_label=None, best_model=None):
             f"""<b>News-Summary-Embeddings in Low dimension with UMAP</b><br>"""
             f"""<span style='font-size: 10px;'>Scaler: {StandardScaler().__class__.__name__}"""
         )
-
-    if cluster_label is not None:
-        df_plot["cluster"] = cluster_label + 1
-        df_plot = df_plot.sort_values(by=["cluster"])
-        df_plot["cluster"] = df_plot["cluster"].astype("string")
-        color = "cluster"
-    else:
         color = None
 
     (

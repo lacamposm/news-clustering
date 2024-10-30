@@ -31,7 +31,7 @@ def get_count_tokens(sentence: str) -> int:
     return len(encoding.encode(sentence))
 
 
-def get_embed_text(text: Union[str, List[str]], embed_model_name: str = "nomic-embed-text") -> List[List[float]]:
+def get_embed_text(text: Union[str, List[str]], embed_model_name: str = "mxbai-embed-large:latest") -> List[List[float]]:
     """
     Genera embeddings para un texto o lista de textos utilizando el modelo de embeddings especificado.
 
@@ -150,7 +150,7 @@ def write_news_summary_from_scraper_df_in_json(file_path: str = "data/bronze/new
             json.dump(results, f, indent=4)
 
 
-def get_embed_summary_df(embed_model_name: str = "nomic-embed-text", write_embed_df: bool = False):
+def get_embed_summary_df(embed_model_name: str = "mxbai-embed-large:latest", write_embed_df: bool = False):
     """
     Carga resúmenes de noticias, genera embeddings y opcionalmente los guarda en un archivo Parquet.
 
@@ -167,7 +167,7 @@ def get_embed_summary_df(embed_model_name: str = "nomic-embed-text", write_embed
 
     Example:
         >>> df_embeddings = get_embed_summary_df(write_embed_df=True)
-        # Genera embeddings y los guarda en 'data/embeddings/nomic-embed-text_summary_news_el_tiempo.parquet'
+        # Genera embeddings y los guarda en 'data/silver/mxbai-embed-large:latest_summary_news_el_tiempo.parquet'
     """
     if not isinstance(embed_model_name, str):
         raise ValueError(f"El nombre del modelo de embeddings debe ser un string")
@@ -190,3 +190,56 @@ def get_embed_summary_df(embed_model_name: str = "nomic-embed-text", write_embed
         return pd.DataFrame(embed_summary_news, index=df_news_summary["url_page"])
 
     return pd.read_parquet(f"data/silver/{name_to_write_or_read}_summary_news_el_tiempo.parquet")
+
+
+def get_topic_in_cluster(news: str, model_name: str = "qwen2.5:7b") -> str:
+    """
+    :param news:
+    :param model_name:
+    :return:
+    """
+    llm_ollama = ChatOllama(
+        model=model_name,
+        temperature=0.1,
+        num_predict=4096,
+        num_ctx=16000,
+        keep_alive=0
+    )
+
+    prompt_characterics = ChatPromptTemplate(
+        [
+            SystemMessagePromptTemplate.from_template(
+                """Eres un asistente especializado en análisis de noticias y clustering semántico. Tu tarea es ayudar 
+                a identificar temas,"""
+                """palabras clave y subtemas dentro de grupos de resúmenes de noticias. Analizas los patrones comunes 
+                en los eventos,"""
+                """lugares, personas y palabras clave para proporcionar una descripción clara y precisa del tema 
+                principal de cada grupo"""
+                """de noticias. Además, eres capaz de detectar subtemas o enfoques recurrentes que puedan enriquecer 
+                el análisis."""
+            ),
+            HumanMessagePromptTemplate.from_template(
+                """Los siguientes son resúmenes de noticias que han sido agrupados en un clúster debido a su 
+                similitud semántica."""
+                """Tu tarea es analizar estos resúmenes y proporcionar una caracterización general del tema principal 
+                del clúster."""
+                """Identifica patrones comunes en los eventos, lugares, personas y palabras clave mencionadas, 
+                y determina un título o"""
+                """categoría representativa que capture la esencia del clúster."""
+                """Además, destaca si hay algún subtema relevante o recurrente que ayude a entender mejor el enfoque 
+                de las noticias en"""
+                """este grupo. Asegúrate de que la descripción sea clara y precisa para que refleje el contenido 
+                general de las noticias."""
+                """Resúmenes de noticias en el clúster: {news}"""
+                """Salida esperada:
+                Tema principal: Una breve descripción del tema general del clúster.
+                Palabras clave: Lista de palabras clave relevantes.
+                Subtemas (si los hay): Cualquier subtema adicional que aparezca en varios resúmenes.
+                Título sugerido: Un título breve que represente el clúster."""
+            )
+        ]
+    )
+
+    llm_chain = prompt_characterics | llm_ollama | StrOutputParser()
+
+    return llm_chain.invoke({"news": news})
